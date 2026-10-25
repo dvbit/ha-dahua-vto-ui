@@ -1,0 +1,275 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Añadir un Dahua VTO/VTH",
+        "description": "Datos de conexión de la placa exterior (VTO) o del monitor interior (VTH). El tipo se detecta automáticamente.",
+        "data": {
+          "name": "Nombre",
+          "host": "Host",
+          "port": "Puerto",
+          "username": "Usuario",
+          "password": "Contraseña"
+        },
+        "data_description": {
+          "name": "Opcional; si está vacío se usa el modelo.",
+          "host": "Dirección IP o nombre de host del dispositivo.",
+          "port": "Puerto RPC, normalmente 5000."
+        }
+      },
+      "reauth_confirm": {
+        "title": "Actualizar credenciales",
+        "description": "{name} rechazó las credenciales. Introdúcelas de nuevo.",
+        "data": {
+          "username": "Usuario",
+          "password": "Contraseña"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "No se puede conectar con el dispositivo.",
+      "invalid_auth": "Usuario o contraseña no válidos.",
+      "unknown": "Error inesperado, consulta el registro.",
+      "no_serial": "El dispositivo no informó el número de serie."
+    },
+    "abort": {
+      "already_configured": "Dispositivo ya configurado; dirección actualizada.",
+      "reauth_successful": "Credenciales actualizadas.",
+      "wrong_device": "Es otro dispositivo (el número de serie no coincide)."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Opciones de Dahua VTO UI",
+        "description": "Los cambios recargan la integración.",
+        "data": {
+          "timeout": "Tiempo de espera",
+          "lock_channels": "Relés de puerta",
+          "unlock_period": "Duración del desbloqueo",
+          "short_number": "Número corto",
+          "rtsp_port": "Puerto RTSP",
+          "http_port": "Puerto HTTP",
+          "stream": "Flujo de vídeo"
+        },
+        "data_description": {
+          "timeout": "Tiempo de espera de los comandos y antes de reconectar.",
+          "lock_channels": "Número de cerraduras a crear (1-2).",
+          "unlock_period": "Tiempo que la cerradura permanece desbloqueada. Ajústalo al valor del VTO.",
+          "short_number": "Identificador enviado con los comandos de apertura.",
+          "http_port": "Usado para las capturas de la cámara."
+        }
+      }
+    }
+  },
+  "selector": {
+    "stream": {
+      "options": {
+        "main": "Principal (alta calidad)",
+        "sub": "Secundario (bajo ancho de banda)"
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "connection": {
+        "name": "Conexión",
+        "state": {
+          "connected": "Conectado",
+          "disconnected": "Desconectado"
+        },
+        "state_attributes": {
+          "device_type": {
+            "name": "Modelo"
+          },
+          "serial_number": {
+            "name": "Número de serie"
+          },
+          "software_version": {
+            "name": "Firmware"
+          }
+        }
+      },
+      "last_call": {
+        "name": "Última llamada",
+        "state_attributes": {
+          "end_state": {
+            "name": "Resultado"
+          },
+          "talk_time": {
+            "name": "Duración de la conversación"
+          },
+          "local_number": {
+            "name": "Número local"
+          },
+          "missed": {
+            "name": "Perdida"
+          }
+        }
+      }
+    },
+    "event": {
+      "doorbell": {
+        "name": "Timbre",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "ring": "Timbre",
+              "voice_message": "Mensaje de voz",
+              "answered": "Contestada",
+              "missed": "Perdida"
+            }
+          }
+        }
+      },
+      "access": {
+        "name": "Acceso",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "authorized": "Autorizado",
+              "denied": "Denegado"
+            }
+          }
+        }
+      }
+    },
+    "lock": {
+      "door": {
+        "name": "Puerta {channel}"
+      }
+    },
+    "binary_sensor": {
+      "door_status": {
+        "name": "Estado de la puerta"
+      }
+    },
+    "camera": {
+      "camera": {
+        "name": "Cámara"
+      }
+    },
+    "button": {
+      "reboot": {
+        "name": "Reiniciar"
+      },
+      "cancel_call": {
+        "name": "Cancelar llamada"
+      }
+    },
+    "alarm_control_panel": {
+      "alarm": {
+        "name": "Alarma",
+        "state_attributes": {
+          "profile": {
+            "name": "Perfil"
+          }
+        }
+      }
+    }
+  },
+  "exceptions": {
+    "invalid_auth": {
+      "message": "Usuario o contraseña no válidos."
+    },
+    "cannot_connect": {
+      "message": "No se puede conectar con el dispositivo: {error}"
+    },
+    "not_connected": {
+      "message": "{name} no está conectado."
+    },
+    "invalid_device": {
+      "message": "El dispositivo {device_id} no pertenece a Dahua VTO UI."
+    },
+    "command_failed": {
+      "message": "El dispositivo rechazó el comando: {error}"
+    },
+    "timeout": {
+      "message": "El dispositivo no respondió a tiempo."
+    }
+  },
+  "services": {
+    "open_door": {
+      "name": "Abrir puerta",
+      "description": "Abre un relé de puerta de un VTO.",
+      "fields": {
+        "device_id": {
+          "name": "Dispositivo",
+          "description": "Dispositivo Dahua VTO/VTH."
+        },
+        "channel": {
+          "name": "Canal",
+          "description": "Número del relé de puerta."
+        },
+        "short_number": {
+          "name": "Número corto",
+          "description": "Sustituye el número corto de las opciones."
+        }
+      }
+    },
+    "send_command": {
+      "name": "Enviar comando",
+      "description": "Envía un comando RPC sin procesar y devuelve la respuesta.",
+      "fields": {
+        "device_id": {
+          "name": "Dispositivo",
+          "description": "Dispositivo Dahua VTO/VTH."
+        },
+        "method": {
+          "name": "Método",
+          "description": "Método RPC, p. ej. magicBox.getSystemInfo."
+        },
+        "params": {
+          "name": "Parámetros",
+          "description": "Parámetros del método."
+        },
+        "event": {
+          "name": "Generar evento",
+          "description": "Envía también la respuesta como evento dahua_vto_ui."
+        },
+        "tag": {
+          "name": "Etiqueta",
+          "description": "Valor copiado en el evento para reconocerlo."
+        },
+        "timeout": {
+          "name": "Tiempo de espera",
+          "description": "Segundos de espera de la respuesta."
+        }
+      }
+    },
+    "send_instance_command": {
+      "name": "Enviar comando de instancia",
+      "description": "Crea una instancia, llama al método, la destruye y devuelve la respuesta.",
+      "fields": {
+        "device_id": {
+          "name": "Dispositivo",
+          "description": "Dispositivo Dahua VTO/VTH."
+        },
+        "method": {
+          "name": "Método",
+          "description": "Método RPC, p. ej. magicBox.getSystemInfo."
+        },
+        "instance_params": {
+          "name": "Parámetros de instancia",
+          "description": "Parámetros de factory.instance."
+        },
+        "params": {
+          "name": "Parámetros",
+          "description": "Parámetros del método."
+        },
+        "event": {
+          "name": "Generar evento",
+          "description": "Envía también la respuesta como evento dahua_vto_ui."
+        },
+        "tag": {
+          "name": "Etiqueta",
+          "description": "Valor copiado en el evento para reconocerlo."
+        },
+        "timeout": {
+          "name": "Tiempo de espera",
+          "description": "Segundos de espera de la respuesta."
+        }
+      }
+    }
+  }
+}

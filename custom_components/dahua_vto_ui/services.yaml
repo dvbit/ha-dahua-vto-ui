@@ -1,0 +1,86 @@
+# Services of Dahua VTO UI (SPEC §5)
+open_door:
+  fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          integration: dahua_vto_ui
+    channel:
+      default: 1
+      selector:
+        number:
+          min: 1
+          max: 2
+          mode: box
+    short_number:
+      example: "HA"
+      selector:
+        text:
+
+send_command:
+  fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          integration: dahua_vto_ui
+    method:
+      required: true
+      example: "magicBox.getSystemInfo"
+      selector:
+        object:
+    params:
+      example: '{"name": "CommGlobal"}'
+      selector:
+        object:
+    event:
+      default: true
+      selector:
+        boolean:
+    tag:
+      selector:
+        text:
+    timeout:
+      default: 5
+      selector:
+        number:
+          min: 1
+          max: 60
+          unit_of_measurement: s
+          mode: box
+
+send_instance_command:
+  fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          integration: dahua_vto_ui
+    method:
+      required: true
+      example: "RecordUpdater.clear"
+      selector:
+        text:
+    instance_params:
+      example: '{"name": "VideoTalkMissedLog"}'
+      selector:
+        object:
+    params:
+      selector:
+        object:
+    event:
+      default: true
+      selector:
+        boolean:
+    tag:
+      selector:
+        text:
+    timeout:
+      default: 5
+      selector:
+        number:
+          min: 1
+          max: 60
+          unit_of_measurement: s
+          mode: box

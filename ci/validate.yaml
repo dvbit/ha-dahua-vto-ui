@@ -1,0 +1,40 @@
+# Copy this file to .github/workflows/validate.yaml (the publishing token has no
+# "workflow" scope, so it is kept here).
+name: Validate
+
+on:
+  push:
+  pull_request:
+  schedule:
+    - cron: "0 3 * * 1"
+
+jobs:
+  hassfest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: home-assistant/actions/hassfest@master
+
+  hacs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: hacs/action@main
+        with:
+          category: integration
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/ruff-action@v3
+      - run: ruff format --check .
+
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+      - run: pip install pytest-homeassistant-custom-component==0.13.373 PyTurboJPEG
+      - run: pytest -q

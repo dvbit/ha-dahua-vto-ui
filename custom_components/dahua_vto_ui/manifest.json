@@ -1,0 +1,21 @@
+{
+  "domain": "dahua_vto_ui",
+  "name": "Dahua VTO UI",
+  "after_dependencies": [
+    "stream"
+  ],
+  "codeowners": [
+    "@dvbit"
+  ],
+  "config_flow": true,
+  "dependencies": [],
+  "documentation": "https://github.com/dvbit/ha-dahua-vto-ui",
+  "integration_type": "device",
+  "iot_class": "local_push",
+  "issue_tracker": "https://github.com/dvbit/ha-dahua-vto-ui/issues",
+  "loggers": [
+    "custom_components.dahua_vto_ui"
+  ],
+  "requirements": [],
+  "version": "2.0.0"
+}

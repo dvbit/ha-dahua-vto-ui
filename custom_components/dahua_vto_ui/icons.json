@@ -1,0 +1,49 @@
+{
+  "entity": {
+    "sensor": {
+      "connection": {
+        "default": "mdi:lan-connect",
+        "state": {
+          "disconnected": "mdi:lan-disconnect"
+        }
+      },
+      "last_call": {
+        "default": "mdi:phone-log"
+      }
+    },
+    "event": {
+      "access": {
+        "default": "mdi:card-account-details"
+      }
+    },
+    "lock": {
+      "door": {
+        "default": "mdi:door-closed-lock",
+        "state": {
+          "unlocked": "mdi:door-open"
+        }
+      }
+    },
+    "button": {
+      "cancel_call": {
+        "default": "mdi:phone-hangup"
+      }
+    },
+    "camera": {
+      "camera": {
+        "default": "mdi:doorbell-video"
+      }
+    }
+  },
+  "services": {
+    "open_door": {
+      "service": "mdi:door-open"
+    },
+    "send_command": {
+      "service": "mdi:console"
+    },
+    "send_instance_command": {
+      "service": "mdi:console-line"
+    }
+  }
+}
