@@ -122,3 +122,13 @@ en / it / fr / es / de: form, opzioni, errori, entità, stati, tipi di evento, s
 - hassfest (core 2026.10.2): nessun errore.
 - ruff (E,F,W,I,UP,B,SIM,D) e ruff format su codice e test: pulito.
 - Nessun avviso di deprecazione HA durante i test.
+
+## 12. Requisiti pianificati (v2.1.0, non ancora sviluppati)
+
+### 12.1 PIN di disinserimento allarme VTH
+- Nuova opzione `disarm_code` nell'options flow della voce VTH (testo, vuoto = nessun PIN).
+- PIN richiesto **solo per disinserire**; inserimento sempre senza PIN.
+- Con PIN impostato l'entità espone `code_format` numerico, così la card allarme mostra il tastierino.
+- PIN errato o mancante → `ServiceValidationError` tradotto, WARNING nel log, nessun comando al VTH.
+- Il PIN è oscurato nella diagnostica.
+- Il PIN del monitor VTH (impostato sul dispositivo) non viene letto né modificato.
