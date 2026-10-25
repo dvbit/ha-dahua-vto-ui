@@ -30,7 +30,7 @@ from .const import (
 )
 from .device import DahuaVtoDevice
 from .entity import DahuaVtoEntity
-from .rpc import DahuaError
+from .rpc import DahuaError, error_text
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -106,7 +106,9 @@ class DahuaDoorLock(DahuaVtoEntity, LockEntity):
         try:
             await self.device.async_open_door(self._channel, short_number)
         except (DahuaError, TimeoutError) as err:
-            _LOGGER.error("%s: opening door %s failed: %s", self.device.name, self._channel, err)
+            _LOGGER.error(
+                "%s: opening door %s failed: %s", self.device.name, self._channel, error_text(err)
+            )
             raise HomeAssistantError(
                 translation_domain=DOMAIN,
                 translation_key="command_failed",

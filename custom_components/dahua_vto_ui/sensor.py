@@ -1,4 +1,4 @@
-"""Sensors: connection state and last call (SPEC §4.1)."""
+"""Sensors: connection, last call (SPEC §4.1) and access log (SPEC §12.4)."""
 
 from __future__ import annotations
 
@@ -14,9 +14,11 @@ from homeassistant.components.sensor import (
 from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
+from homeassistant.util import dt as dt_util
 
 from . import DahuaConfigEntry
-from .const import CODE_VIDEO_TALK_LOG, STATE_CONNECTED, STATE_DISCONNECTED
+from .const import CODE_VIDEO_TALK_LOG, KIND_VTO, STATE_CONNECTED, STATE_DISCONNECTED
+from .device import DahuaVtoDevice
 from .entity import DahuaVtoEntity
 
 _LOGGER = logging.getLogger(__name__)
@@ -29,7 +31,10 @@ async def async_setup_entry(
 ) -> None:
     """Add the sensors of both device kinds."""
     device = entry.runtime_data
-    async_add_entities([DahuaConnectionSensor(device), DahuaLastCallSensor(device)])
+    sensors: list[SensorEntity] = [DahuaConnectionSensor(device), DahuaLastCallSensor(device)]
+    if device.kind == KIND_VTO:
+        sensors.append(DahuaAccessLogSensor(device))
+    async_add_entities(sensors)
 
 
 class DahuaConnectionSensor(DahuaVtoEntity, SensorEntity):
@@ -39,7 +44,7 @@ class DahuaConnectionSensor(DahuaVtoEntity, SensorEntity):
     _attr_options = [STATE_CONNECTED, STATE_DISCONNECTED]
     _attr_entity_category = EntityCategory.DIAGNOSTIC
 
-    def __init__(self, device) -> None:
+    def __init__(self, device: DahuaVtoDevice) -> None:
         """Create the connection sensor."""
         super().__init__(device, "sensor", "connection")
 
@@ -74,7 +79,7 @@ class DahuaLastCallSensor(DahuaVtoEntity, RestoreSensor):
 
     _attr_device_class = SensorDeviceClass.TIMESTAMP
 
-    def __init__(self, device) -> None:
+    def __init__(self, device: DahuaVtoDevice) -> None:
         """Create the last call sensor."""
         super().__init__(device, "sensor", "last_call")
         self._attr_native_value: datetime | None = None
@@ -116,3 +121,42 @@ class DahuaLastCallSensor(DahuaVtoEntity, RestoreSensor):
             "missed": end_state == "Missed",
         }
         self.async_write_ha_state()
+
+
+class DahuaAccessLogSensor(DahuaVtoEntity, SensorEntity):
+    """Last 60 accesses and calls (SPEC §12.4).
+
+    State = time of the most recent entry; ``history`` holds the list and is
+    excluded from the recorder (states over 16 KB are not stored). The data
+    lives in the integration Store, so it is available while disconnected.
+    """
+
+    _attr_device_class = SensorDeviceClass.TIMESTAMP
+    _unrecorded_attributes = frozenset({"history"})
+
+    def __init__(self, device: DahuaVtoDevice) -> None:
+        """Create the access log sensor."""
+        super().__init__(device, "sensor", "access_log")
+
+    @property
+    def available(self) -> bool:
+        """The log is stored locally: always available."""
+        return True
+
+    @property
+    def native_value(self) -> datetime | None:
+        """Time of the latest entry."""
+        entries = self.device.history.newest_first(1)
+        return dt_util.parse_datetime(entries[0]["time"]) if entries else None
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Entries from the most recent."""
+        return {"history": self.device.history.newest_first()}
+
+    async def async_added_to_hass(self) -> None:
+        """Refresh on every history change."""
+        await super().async_added_to_hass()
+        self.async_on_remove(
+            self.device.async_subscribe(self.device.signal_history, self.async_write_ha_state)
+        )

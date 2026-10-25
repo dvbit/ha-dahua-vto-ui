@@ -3,7 +3,7 @@
 # Dahua VTO UI
 
 [![HACS Custom](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://hacs.xyz/)
-![Versione](https://img.shields.io/badge/versione-2.0.0-blue)
+![Versione](https://img.shields.io/badge/versione-2.1.0-blue)
 ![HA](https://img.shields.io/badge/Home%20Assistant-2026.9%2B-41BDF5)
 
 🇬🇧 [Read in English](README.md)
@@ -33,6 +33,16 @@ risposta diretta) e l'evento `dahua_vto_ui` con gli stessi dati dell'originale.
 
 Provata con VTO2000A e VTH5221DW; dovrebbero funzionare anche i modelli elencati
 dall'integrazione originale.
+
+## Novità della 2.1.0
+
+- **PIN di disinserimento** per l'allarme del VTH (opzioni della voce VTH): richiesto solo
+  per disinserire, l'inserimento resta senza PIN.
+- **Numero impronta** negli eventi di accesso (`fingerprint_id`) e associazioni
+  **impronta → persona** (opzioni del VTO → *Impronte e persone*). Il VTO non elenca le
+  sue impronte: il form propone gli ID già visti e puoi digitarne uno.
+- **Registro accessi**: `sensor.<nome>_access_log` e il servizio `get_access_log`
+  conservano gli ultimi 60 accessi e chiamate, anche dopo un riavvio.
 
 ## Installazione
 
@@ -178,6 +188,55 @@ Gli esempi di comandi del README originale funzionano allo stesso modo, con
 `device_id` al posto di `entity_id` (es. `magicBox.listMethod`, `console.runCmd` con
 `command: call 9901`, `RecordUpdater.clear` con `send_instance_command`).
 
+### Registro accessi in una dashboard
+
+```yaml
+type: markdown
+title: Registro citofono
+content: >-
+  {% for e in state_attr('sensor.citofono_access_log', 'history')[:15] %}
+  {{ as_timestamp(e.time) | timestamp_custom('%d/%m %H:%M') }} ·
+  {% if e.type == 'access' %}🔓 {{ e.method_name }}
+  {%- if e.person %} {{ state_attr(e.person, 'friendly_name') }}{% endif %}
+  {%- else %}🔔 {{ e.event }} {{ e.number or '' }}{% endif %}
+
+  {% endfor %}
+```
+
+### Benvenuto con l'impronta
+
+```yaml
+alias: Benvenuto con impronta
+triggers:
+  - trigger: state
+    entity_id: event.citofono_access
+    not_from: unavailable
+conditions:
+  - condition: template
+    value_template: "{{ trigger.to_state.attributes.person is not none }}"
+actions:
+  - action: notify.mobile_app_telefono
+    data:
+      message: >-
+        {{ state_attr(trigger.to_state.attributes.person, 'friendly_name') }}
+        ha aperto il cancelletto
+mode: queued
+```
+
+### Ultime 10 voci in uno script
+
+```yaml
+actions:
+  - action: dahua_vto_ui.get_access_log
+    data:
+      device_id: 1a2b3c4d5e6f7a8b9c0d
+      limit: 10
+    response_variable: registro
+  - action: persistent_notification.create
+    data:
+      message: "{{ registro.entries | map(attribute='type') | list }}"
+```
+
 ### Eventi grezzi del dispositivo
 
 ```yaml
@@ -214,6 +273,9 @@ logger:
 
 I log di debug mostrano ogni frame scambiato (password oscurata). La diagnostica
 include gli ultimi 20 eventi del dispositivo.
+
+**Nota:** il VTO2000A chiude la sessione su `system.listService`; l'integrazione si
+riconnette da sola. Usa invece `magicBox.listMethod` o `<Servizio>.listMethod`.
 
 ## Crediti e licenza
 

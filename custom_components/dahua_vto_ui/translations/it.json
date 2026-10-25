@@ -42,6 +42,13 @@
     "step": {
       "init": {
         "title": "Opzioni Dahua VTO UI",
+        "menu_options": {
+          "settings": "Impostazioni dispositivo",
+          "fingerprints": "Impronte e persone"
+        }
+      },
+      "settings": {
+        "title": "Opzioni Dahua VTO UI",
         "description": "Le modifiche ricaricano l'integrazione.",
         "data": {
           "timeout": "Timeout",
@@ -50,16 +57,29 @@
           "short_number": "Numero breve",
           "rtsp_port": "Porta RTSP",
           "http_port": "Porta HTTP",
-          "stream": "Flusso video"
+          "stream": "Flusso video",
+          "disarm_code": "PIN di disinserimento"
         },
         "data_description": {
           "timeout": "Timeout dei comandi e attesa prima di riconnettersi.",
           "lock_channels": "Numero di serrature da creare (1-2).",
           "unlock_period": "Quanto resta sbloccata la serratura dopo l'apertura. Allinealo all'impostazione del VTO.",
           "short_number": "Identificativo inviato con i comandi di apertura.",
-          "http_port": "Usata per le istantanee della camera."
+          "http_port": "Usata per le istantanee della camera.",
+          "disarm_code": "Richiesto solo per disinserire da Home Assistant. Lascia vuoto per nessun PIN."
+        }
+      },
+      "fingerprints": {
+        "title": "Impronta → persona",
+        "description": "Scegli l'ID impronta (l'elenco mostra quelli già visti; puoi digitarne uno nuovo) e la persona. Lascia vuota la persona per eliminare l'associazione.\n\nAssociazioni attuali:\n{mappings}",
+        "data": {
+          "fingerprint_id": "ID impronta",
+          "person": "Persona"
         }
       }
+    },
+    "error": {
+      "invalid_fingerprint": "L'ID impronta deve essere un numero."
     }
   },
   "selector": {
@@ -87,6 +107,14 @@
           },
           "software_version": {
             "name": "Firmware"
+          }
+        }
+      },
+      "access_log": {
+        "name": "Registro accessi",
+        "state_attributes": {
+          "history": {
+            "name": "Storico"
           }
         }
       },
@@ -130,6 +158,24 @@
               "authorized": "Autorizzato",
               "denied": "Negato"
             }
+          },
+          "method": {
+            "name": "Metodo"
+          },
+          "method_name": {
+            "name": "Nome metodo"
+          },
+          "user_id": {
+            "name": "Utente"
+          },
+          "card_no": {
+            "name": "Numero tessera"
+          },
+          "fingerprint_id": {
+            "name": "ID impronta"
+          },
+          "person": {
+            "name": "Persona"
           }
         }
       }
@@ -186,6 +232,9 @@
     },
     "timeout": {
       "message": "Il dispositivo non ha risposto in tempo."
+    },
+    "invalid_code": {
+      "message": "PIN errato o mancante."
     }
   },
   "services": {
@@ -234,6 +283,20 @@
         "timeout": {
           "name": "Timeout",
           "description": "Secondi di attesa della risposta."
+        }
+      }
+    },
+    "get_access_log": {
+      "name": "Leggi registro accessi",
+      "description": "Restituisce accessi e chiamate memorizzati, dal più recente.",
+      "fields": {
+        "device_id": {
+          "name": "Dispositivo",
+          "description": "Dispositivo Dahua VTO/VTH."
+        },
+        "limit": {
+          "name": "Limite",
+          "description": "Numero massimo di voci (1-60)."
         }
       }
     },

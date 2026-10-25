@@ -3,7 +3,7 @@
 # Dahua VTO UI
 
 [![HACS Custom](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://hacs.xyz/)
-![Version](https://img.shields.io/badge/version-2.0.0-blue)
+![Version](https://img.shields.io/badge/version-2.1.0-blue)
 ![HA](https://img.shields.io/badge/Home%20Assistant-2026.9%2B-41BDF5)
 
 🇮🇹 [Leggi in italiano](README.it.md)
@@ -33,6 +33,16 @@ direct response) and the `dahua_vto_ui` event with the same payloads as the orig
 
 Tested with VTO2000A and VTH5221DW; the models listed by the original integration
 should work as well.
+
+## New in 2.1.0
+
+- **Disarm PIN** for the VTH alarm (options of the VTH entry): required only to disarm,
+  arming stays without PIN.
+- **Fingerprint ID** on access events (`fingerprint_id`) and **fingerprint → person**
+  links (VTO options → *Fingerprints and people*). The VTO cannot list its fingerprints,
+  so the form offers the IDs already seen; you can also type one.
+- **Access log**: `sensor.<name>_access_log` and the `get_access_log` service keep the
+  last 60 accesses and calls, also after a restart.
 
 ## Installation
 
@@ -178,6 +188,55 @@ The command examples of the original README work the same way, using `device_id`
 instead of `entity_id` (e.g. `magicBox.listMethod`, `console.runCmd` with
 `command: call 9901`, `RecordUpdater.clear` with `send_instance_command`).
 
+### Access log in a dashboard
+
+```yaml
+type: markdown
+title: Intercom log
+content: >-
+  {% for e in state_attr('sensor.citofono_access_log', 'history')[:15] %}
+  {{ as_timestamp(e.time) | timestamp_custom('%d/%m %H:%M') }} ·
+  {% if e.type == 'access' %}🔓 {{ e.method_name }}
+  {%- if e.person %} {{ state_attr(e.person, 'friendly_name') }}{% endif %}
+  {%- else %}🔔 {{ e.event }} {{ e.number or '' }}{% endif %}
+
+  {% endfor %}
+```
+
+### Welcome by fingerprint
+
+```yaml
+alias: Welcome home by fingerprint
+triggers:
+  - trigger: state
+    entity_id: event.citofono_access
+    not_from: unavailable
+conditions:
+  - condition: template
+    value_template: "{{ trigger.to_state.attributes.person is not none }}"
+actions:
+  - action: notify.mobile_app_phone
+    data:
+      message: >-
+        {{ state_attr(trigger.to_state.attributes.person, 'friendly_name') }}
+        opened the gate
+mode: queued
+```
+
+### Last 10 entries in a script
+
+```yaml
+actions:
+  - action: dahua_vto_ui.get_access_log
+    data:
+      device_id: 1a2b3c4d5e6f7a8b9c0d
+      limit: 10
+    response_variable: log
+  - action: persistent_notification.create
+    data:
+      message: "{{ log.entries | map(attribute='type') | list }}"
+```
+
 ### Raw device events
 
 ```yaml
@@ -214,6 +273,9 @@ logger:
 
 Debug logs show every frame exchanged (password hidden). Diagnostics include the
 last 20 device events.
+
+**Note:** the VTO2000A closes the session on `system.listService`; the integration
+reconnects automatically. Use `magicBox.listMethod` or `<Service>.listMethod` instead.
 
 ## Credits and license
 

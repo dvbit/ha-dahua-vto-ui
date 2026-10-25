@@ -42,6 +42,13 @@
     "step": {
       "init": {
         "title": "Options Dahua VTO UI",
+        "menu_options": {
+          "settings": "Réglages de l'appareil",
+          "fingerprints": "Empreintes et personnes"
+        }
+      },
+      "settings": {
+        "title": "Options Dahua VTO UI",
         "description": "Les modifications rechargent l'intégration.",
         "data": {
           "timeout": "Délai",
@@ -50,16 +57,29 @@
           "short_number": "Numéro court",
           "rtsp_port": "Port RTSP",
           "http_port": "Port HTTP",
-          "stream": "Flux vidéo"
+          "stream": "Flux vidéo",
+          "disarm_code": "Code de désarmement"
         },
         "data_description": {
           "timeout": "Délai des commandes et attente avant reconnexion.",
           "lock_channels": "Nombre de serrures à créer (1-2).",
           "unlock_period": "Durée pendant laquelle la serrure reste déverrouillée. Alignez-la sur le réglage du VTO.",
           "short_number": "Identifiant envoyé avec les commandes d'ouverture.",
-          "http_port": "Utilisé pour les instantanés de la caméra."
+          "http_port": "Utilisé pour les instantanés de la caméra.",
+          "disarm_code": "Requis uniquement pour désarmer depuis Home Assistant. Laisser vide pour aucun code."
+        }
+      },
+      "fingerprints": {
+        "title": "Empreinte → personne",
+        "description": "Choisissez l'ID d'empreinte (la liste montre ceux déjà vus ; vous pouvez en saisir un nouveau) et la personne. Laissez la personne vide pour supprimer le lien.\n\nLiens actuels :\n{mappings}",
+        "data": {
+          "fingerprint_id": "ID d'empreinte",
+          "person": "Personne"
         }
       }
+    },
+    "error": {
+      "invalid_fingerprint": "L'ID d'empreinte doit être un nombre."
     }
   },
   "selector": {
@@ -87,6 +107,14 @@
           },
           "software_version": {
             "name": "Firmware"
+          }
+        }
+      },
+      "access_log": {
+        "name": "Journal des accès",
+        "state_attributes": {
+          "history": {
+            "name": "Historique"
           }
         }
       },
@@ -130,6 +158,24 @@
               "authorized": "Autorisé",
               "denied": "Refusé"
             }
+          },
+          "method": {
+            "name": "Méthode"
+          },
+          "method_name": {
+            "name": "Nom de la méthode"
+          },
+          "user_id": {
+            "name": "Utilisateur"
+          },
+          "card_no": {
+            "name": "Numéro de carte"
+          },
+          "fingerprint_id": {
+            "name": "ID d'empreinte"
+          },
+          "person": {
+            "name": "Personne"
           }
         }
       }
@@ -186,6 +232,9 @@
     },
     "timeout": {
       "message": "L'appareil n'a pas répondu à temps."
+    },
+    "invalid_code": {
+      "message": "Code erroné ou manquant."
     }
   },
   "services": {
@@ -234,6 +283,20 @@
         "timeout": {
           "name": "Délai",
           "description": "Secondes d'attente de la réponse."
+        }
+      }
+    },
+    "get_access_log": {
+      "name": "Lire le journal des accès",
+      "description": "Renvoie les accès et appels enregistrés, du plus récent.",
+      "fields": {
+        "device_id": {
+          "name": "Appareil",
+          "description": "Appareil Dahua VTO/VTH."
+        },
+        "limit": {
+          "name": "Limite",
+          "description": "Nombre maximal d'entrées (1-60)."
         }
       }
     },

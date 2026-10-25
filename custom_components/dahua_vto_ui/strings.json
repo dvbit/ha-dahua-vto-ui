@@ -42,6 +42,13 @@
     "step": {
       "init": {
         "title": "Dahua VTO UI options",
+        "menu_options": {
+          "settings": "Device settings",
+          "fingerprints": "Fingerprints and people"
+        }
+      },
+      "settings": {
+        "title": "Dahua VTO UI options",
         "description": "Changes reload the integration.",
         "data": {
           "timeout": "Timeout",
@@ -50,16 +57,29 @@
           "short_number": "Short number",
           "rtsp_port": "RTSP port",
           "http_port": "HTTP port",
-          "stream": "Video stream"
+          "stream": "Video stream",
+          "disarm_code": "Disarm PIN"
         },
         "data_description": {
           "timeout": "Command timeout and wait before reconnecting.",
           "lock_channels": "Number of door locks to create (1-2).",
           "unlock_period": "How long the lock stays unlocked after opening. Match the VTO setting.",
           "short_number": "Identifier sent with door opening commands.",
-          "http_port": "Used for camera snapshots."
+          "http_port": "Used for camera snapshots.",
+          "disarm_code": "Required only to disarm from Home Assistant. Leave empty for no PIN."
+        }
+      },
+      "fingerprints": {
+        "title": "Fingerprint → person",
+        "description": "Choose a fingerprint ID (the list shows the IDs already seen; you can type a new one) and the person. Leave the person empty to remove the link.\n\nCurrent links:\n{mappings}",
+        "data": {
+          "fingerprint_id": "Fingerprint ID",
+          "person": "Person"
         }
       }
+    },
+    "error": {
+      "invalid_fingerprint": "The fingerprint ID must be a number."
     }
   },
   "selector": {
@@ -87,6 +107,14 @@
           },
           "software_version": {
             "name": "Firmware"
+          }
+        }
+      },
+      "access_log": {
+        "name": "Access log",
+        "state_attributes": {
+          "history": {
+            "name": "History"
           }
         }
       },
@@ -130,6 +158,24 @@
               "authorized": "Authorized",
               "denied": "Denied"
             }
+          },
+          "method": {
+            "name": "Method"
+          },
+          "method_name": {
+            "name": "Method name"
+          },
+          "user_id": {
+            "name": "User"
+          },
+          "card_no": {
+            "name": "Card number"
+          },
+          "fingerprint_id": {
+            "name": "Fingerprint ID"
+          },
+          "person": {
+            "name": "Person"
           }
         }
       }
@@ -186,6 +232,9 @@
     },
     "timeout": {
       "message": "The device did not answer in time."
+    },
+    "invalid_code": {
+      "message": "Wrong or missing PIN."
     }
   },
   "services": {
@@ -234,6 +283,20 @@
         "timeout": {
           "name": "Timeout",
           "description": "Seconds to wait for the answer."
+        }
+      }
+    },
+    "get_access_log": {
+      "name": "Get access log",
+      "description": "Returns the stored accesses and calls, newest first.",
+      "fields": {
+        "device_id": {
+          "name": "Device",
+          "description": "Dahua VTO/VTH device."
+        },
+        "limit": {
+          "name": "Limit",
+          "description": "Maximum number of entries (1-60)."
         }
       }
     },

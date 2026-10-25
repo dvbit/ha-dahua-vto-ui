@@ -1,4 +1,4 @@
-# Dahua VTO UI — specifica consolidata v2.0.0
+# Dahua VTO UI — specifica consolidata v2.1.0
 
 Fork di [myhomeiot/DahuaVTO](https://github.com/myhomeiot/DahuaVTO) (GPL-3.0)
 reso configurabile interamente da interfaccia, con le configurazioni suggerite
@@ -123,7 +123,7 @@ en / it / fr / es / de: form, opzioni, errori, entità, stati, tipi di evento, s
 - ruff (E,F,W,I,UP,B,SIM,D) e ruff format su codice e test: pulito.
 - Nessun avviso di deprecazione HA durante i test.
 
-## 12. Requisiti pianificati (v2.1.0, non ancora sviluppati)
+## 12. Requisiti v2.1.0
 
 ### 12.1 PIN di disinserimento allarme VTH
 - Nuova opzione `disarm_code` nell'options flow della voce VTH (testo, vuoto = nessun PIN).
@@ -141,6 +141,8 @@ en / it / fr / es / de: form, opzioni, errori, entità, stati, tipi di evento, s
   arriva ~5 s prima di `AccessControl` con `Method` 6 e `UserID` = numero stanza).
 
 ### 12.3 Impronta → persona
+- Opzioni del VTO: menu "Impostazioni dispositivo" / "Impronte e persone"; ogni salvataggio
+  aggiunge, modifica o (persona vuota) rimuove un'associazione e conserva le altre opzioni.
 - Nelle opzioni del VTO: elenco di associazioni `ID impronta → persona` (selettore entità
   `person`), opzionale.
 - Lettura dell'elenco impronte dal VTO: **non disponibile**. Verifica su VTO2000A:
@@ -169,3 +171,11 @@ en / it / fr / es / de: form, opzioni, errori, entità, stati, tipi di evento, s
 - Il VTO2000A chiude la sessione su `system.listService` (nessuna risposta, disconnessione
   dopo ~5 s): documentarlo nel README; la riconnessione automatica funziona.
 - Messaggio di errore vuoto nel log per i timeout dei servizi: scrivere "timeout".
+
+## 13. Verifiche eseguite (v2.1.0)
+
+- 26 test pytest su HA reale **2026.10.2** e **2026.9.0**: passati (nuovi: menu opzioni,
+  associazione impronte con validazione e rimozione, PIN solo per disinserire con PIN errato
+  rifiutato senza comandi, `fingerprint_id` e persona, impronta scaduta ignorata, storico con
+  numero chiamato, persistenza Store dopo unload/setup, servizio `get_access_log`).
+- hassfest (core 2026.10.2), ruff e ruff format: puliti; nessun avviso di deprecazione.

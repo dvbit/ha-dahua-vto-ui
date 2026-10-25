@@ -42,6 +42,13 @@
     "step": {
       "init": {
         "title": "Dahua VTO UI Optionen",
+        "menu_options": {
+          "settings": "Geräteeinstellungen",
+          "fingerprints": "Fingerabdrücke und Personen"
+        }
+      },
+      "settings": {
+        "title": "Dahua VTO UI Optionen",
         "description": "Änderungen laden die Integration neu.",
         "data": {
           "timeout": "Zeitlimit",
@@ -50,16 +57,29 @@
           "short_number": "Kurznummer",
           "rtsp_port": "RTSP-Port",
           "http_port": "HTTP-Port",
-          "stream": "Videostream"
+          "stream": "Videostream",
+          "disarm_code": "Entschärfungs-PIN"
         },
         "data_description": {
           "timeout": "Zeitlimit für Befehle und Wartezeit vor dem Neuverbinden.",
           "lock_channels": "Anzahl der anzulegenden Türschlösser (1-2).",
           "unlock_period": "Wie lange das Schloss nach dem Öffnen entriegelt bleibt. An die VTO-Einstellung anpassen.",
           "short_number": "Kennung, die mit Öffnungsbefehlen gesendet wird.",
-          "http_port": "Wird für Kamera-Schnappschüsse verwendet."
+          "http_port": "Wird für Kamera-Schnappschüsse verwendet.",
+          "disarm_code": "Nur zum Entschärfen aus Home Assistant erforderlich. Leer lassen für keinen PIN."
+        }
+      },
+      "fingerprints": {
+        "title": "Fingerabdruck → Person",
+        "description": "Wähle die Fingerabdruck-ID (die Liste zeigt bereits gesehene IDs; du kannst eine neue eingeben) und die Person. Person leer lassen, um die Zuordnung zu löschen.\n\nAktuelle Zuordnungen:\n{mappings}",
+        "data": {
+          "fingerprint_id": "Fingerabdruck-ID",
+          "person": "Person"
         }
       }
+    },
+    "error": {
+      "invalid_fingerprint": "Die Fingerabdruck-ID muss eine Zahl sein."
     }
   },
   "selector": {
@@ -87,6 +107,14 @@
           },
           "software_version": {
             "name": "Firmware"
+          }
+        }
+      },
+      "access_log": {
+        "name": "Zutrittsprotokoll",
+        "state_attributes": {
+          "history": {
+            "name": "Verlauf"
           }
         }
       },
@@ -130,6 +158,24 @@
               "authorized": "Autorisiert",
               "denied": "Verweigert"
             }
+          },
+          "method": {
+            "name": "Methode"
+          },
+          "method_name": {
+            "name": "Methodenname"
+          },
+          "user_id": {
+            "name": "Benutzer"
+          },
+          "card_no": {
+            "name": "Kartennummer"
+          },
+          "fingerprint_id": {
+            "name": "Fingerabdruck-ID"
+          },
+          "person": {
+            "name": "Person"
           }
         }
       }
@@ -186,6 +232,9 @@
     },
     "timeout": {
       "message": "Das Gerät hat nicht rechtzeitig geantwortet."
+    },
+    "invalid_code": {
+      "message": "Falscher oder fehlender PIN."
     }
   },
   "services": {
@@ -234,6 +283,20 @@
         "timeout": {
           "name": "Zeitlimit",
           "description": "Sekunden Wartezeit auf die Antwort."
+        }
+      }
+    },
+    "get_access_log": {
+      "name": "Zutrittsprotokoll abrufen",
+      "description": "Gibt die gespeicherten Zutritte und Anrufe zurück, neueste zuerst.",
+      "fields": {
+        "device_id": {
+          "name": "Gerät",
+          "description": "Dahua VTO/VTH-Gerät."
+        },
+        "limit": {
+          "name": "Limit",
+          "description": "Maximale Anzahl Einträge (1-60)."
         }
       }
     },

@@ -28,8 +28,15 @@ from homeassistant.helpers.dispatcher import (
 from homeassistant.util import dt as dt_util
 
 from .const import (
+    BKL_KNOWN,
+    CODE_ACCESS_CONTROL,
+    CODE_BACK_KEY_LIGHT,
+    CODE_CALL_SNAP,
     CODE_CONFIG_CHANGE,
+    CODE_FINGERPRINT_CHECK,
+    CODE_VIDEO_TALK_LOG,
     CONF_DEVICE_KIND,
+    CONF_FINGERPRINT_PERSONS,
     CONFIG_COMM_GLOBAL,
     DEFAULT_TIMEOUT,
     DOMAIN,
@@ -38,7 +45,8 @@ from .const import (
     KIND_VTH,
     KIND_VTO,
 )
-from .rpc import DahuaAuthError, DahuaCommandError, DahuaError, DahuaRpcClient
+from .history import AccessHistory
+from .rpc import DahuaAuthError, DahuaCommandError, DahuaError, DahuaRpcClient, error_text
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -79,6 +87,7 @@ class DahuaVtoDevice:
         self.connection_entity_id: str | None = None  # set by the sensor (SPEC §6)
         self.device_id: str | None = None  # set in async_setup_entry
         self.events: deque[dict[str, Any]] = deque(maxlen=EVENT_HISTORY_SIZE)
+        self.history = AccessHistory(hass, entry.entry_id)  # SPEC §12.4
         self._disconnected: asyncio.Event = asyncio.Event()
         self._task: asyncio.Task[None] | None = None
         self._stopping = False
@@ -98,6 +107,26 @@ class DahuaVtoDevice:
     def signal_config(self) -> str:
         """Dispatcher signal: configuration table changed."""
         return f"{DOMAIN}_{self.entry.entry_id}_config"
+
+    @property
+    def signal_doorbell(self) -> str:
+        """Dispatcher signal: interpreted doorbell event (SPEC §4.2)."""
+        return f"{DOMAIN}_{self.entry.entry_id}_doorbell"
+
+    @property
+    def signal_access(self) -> str:
+        """Dispatcher signal: interpreted access event (SPEC §12.2-12.3)."""
+        return f"{DOMAIN}_{self.entry.entry_id}_access"
+
+    @property
+    def signal_history(self) -> str:
+        """Dispatcher signal: history changed (SPEC §12.4)."""
+        return f"{DOMAIN}_{self.entry.entry_id}_history"
+
+    @property
+    def fingerprint_persons(self) -> dict[str, str]:
+        """Fingerprint ID → person entity_id from the options (SPEC §12.3)."""
+        return dict(self.entry.options.get(CONF_FINGERPRINT_PERSONS) or {})
 
     @callback
     def async_subscribe(self, signal: str, target: Callable[..., None]) -> CALLBACK_TYPE:
@@ -167,7 +196,10 @@ class DahuaVtoDevice:
                 return
             except (DahuaError, TimeoutError, OSError) as err:
                 _LOGGER.warning(
-                    "%s: reconnection failed (%s), retry in %s s", self.name, err, self.timeout
+                    "%s: reconnection failed (%s), retry in %s s",
+                    self.name,
+                    error_text(err),
+                    self.timeout,
                 )
 
     async def async_stop(self) -> None:
@@ -180,6 +212,7 @@ class DahuaVtoDevice:
         if self._task is not None:
             self._task.cancel()
         self.connected = False
+        await self.history.async_flush()
 
     # --------------------------------------------------------------- events
     @callback
@@ -227,6 +260,41 @@ class DahuaVtoDevice:
         self.events.append({"received": dt_util.utcnow().isoformat(), **event})
         self.hass.bus.async_fire(EVENT_BUS, self._bus_payload(dict(event)))
         async_dispatcher_send(self.hass, self.signal_event, event)
+        self._interpret(event)
+
+    @callback
+    def _interpret(self, event: dict[str, Any]) -> None:
+        """Feed the shared history and send derived signals (SPEC §12)."""
+        code = event.get("Code")
+        data = event.get("Data") or {}
+        history = self.history
+        if code == CODE_BACK_KEY_LIGHT:
+            state = data.get("State")
+            if str(state) not in {str(s) for s in BKL_KNOWN}:
+                _LOGGER.warning("%s: unknown BackKeyLight state %s", self.name, state)
+            if (event_type := history.handle_back_key_light(data)) is None:
+                return
+            _LOGGER.debug("%s doorbell %s", self.name, event_type)
+            async_dispatcher_send(
+                self.hass,
+                self.signal_doorbell,
+                event_type,
+                {"state": state, "utc": data.get("UTC")},
+            )
+        elif code == CODE_CALL_SNAP:
+            history.handle_call_snap(data)
+        elif code == CODE_VIDEO_TALK_LOG:
+            history.handle_video_talk_log(data)
+        elif code == CODE_FINGERPRINT_CHECK:
+            history.handle_fingerprint_check(data)
+            return
+        elif code == CODE_ACCESS_CONTROL:
+            entry = history.handle_access_control(data, self.fingerprint_persons)
+            _LOGGER.debug("%s access %s", self.name, entry)
+            async_dispatcher_send(self.hass, self.signal_access, entry)
+        else:
+            return
+        async_dispatcher_send(self.hass, self.signal_history)
 
     @callback
     def _handle_config_change(self, table: dict[str, Any]) -> None:

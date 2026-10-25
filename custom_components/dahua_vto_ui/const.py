@@ -66,6 +66,8 @@ CODE_ACCESS_CONTROL: Final = "AccessControl"
 CODE_DOOR_STATUS: Final = "DoorStatus"
 CODE_VIDEO_TALK_LOG: Final = "VideoTalkLog"
 CODE_CONFIG_CHANGE: Final = "client.notifyConfigChange"
+CODE_FINGERPRINT_CHECK: Final = "FingerPrintCheck"
+CODE_CALL_SNAP: Final = "CallSnap"
 
 # BackKeyLight states (README table, SPEC §4.2).
 BKL_IDLE: Final = 0
@@ -106,6 +108,15 @@ PROFILE_CUSTOM: Final = "Custom"
 # Connection sensor states (SPEC §4.1).
 STATE_CONNECTED: Final = "connected"
 STATE_DISCONNECTED: Final = "disconnected"
+
+# --- v2.1.0 (SPEC §12) -----------------------------------------------------
+CONF_DISARM_CODE: Final = "disarm_code"  # §12.1
+CONF_FINGERPRINT_PERSONS: Final = "fingerprint_persons"  # §12.3, {"<id>": "person.x"}
+CONF_FINGERPRINT_ID: Final = "fingerprint_id"
+CONF_PERSON: Final = "person"
+HISTORY_SIZE: Final = 60  # §12.4
+SERVICE_GET_ACCESS_LOG: Final = "get_access_log"
+ATTR_LIMIT: Final = "limit"
 
 # Number of recent events kept for diagnostics (SPEC §8).
 EVENT_HISTORY_SIZE: Final = 20

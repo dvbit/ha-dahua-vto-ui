@@ -22,6 +22,8 @@ from homeassistant.const import (
 )
 from homeassistant.core import callback
 from homeassistant.helpers.selector import (
+    EntitySelector,
+    EntitySelectorConfig,
     NumberSelector,
     NumberSelectorConfig,
     NumberSelectorMode,
@@ -36,9 +38,13 @@ import voluptuous as vol
 
 from .const import (
     CONF_DEVICE_KIND,
+    CONF_DISARM_CODE,
+    CONF_FINGERPRINT_ID,
+    CONF_FINGERPRINT_PERSONS,
     CONF_HTTP_PORT,
     CONF_LOCK_CHANNELS,
     CONF_MODEL,
+    CONF_PERSON,
     CONF_RTSP_PORT,
     CONF_SERIAL,
     CONF_SHORT_NUMBER,
@@ -202,10 +208,32 @@ class DahuaVtoConfigFlow(ConfigFlow, domain=DOMAIN):
 
 
 class DahuaVtoOptionsFlow(OptionsFlowWithReload):
-    """Runtime options, reload on save (SPEC §2.5)."""
+    """Runtime options, reload on save (SPEC §2.5, §12.1, §12.3).
+
+    VTO: menu with "settings" and "fingerprints"; VTH: settings only.
+    Every step merges into the existing options so nothing is lost.
+    """
+
+    @property
+    def _is_vto(self) -> bool:
+        return self.config_entry.data.get(CONF_DEVICE_KIND, KIND_VTO) == KIND_VTO
+
+    def _save(self, changes: dict[str, Any]) -> ConfigFlowResult:
+        options = {**self.config_entry.options, **changes}
+        logged = {k: ("***" if k == CONF_DISARM_CODE and v else v) for k, v in changes.items()}
+        _LOGGER.info("Options updated for %s: %s", self.config_entry.title, logged)
+        return self.async_create_entry(data=options)
 
     async def async_step_init(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
-        """One form; VTO-only fields hidden for VTH."""
+        """Menu for VTO, settings form for VTH."""
+        if self._is_vto:
+            return self.async_show_menu(step_id="init", menu_options=["settings", "fingerprints"])
+        return await self.async_step_settings()
+
+    async def async_step_settings(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Edit connection and device options (SPEC §2.5) and the VTH PIN (§12.1)."""
         if user_input is not None:
             for key in (
                 CONF_TIMEOUT,
@@ -216,8 +244,9 @@ class DahuaVtoOptionsFlow(OptionsFlowWithReload):
             ):
                 if key in user_input:
                     user_input[key] = int(user_input[key])
-            _LOGGER.info("Options updated for %s: %s", self.config_entry.title, user_input)
-            return self.async_create_entry(data=user_input)
+            if not self._is_vto:
+                user_input[CONF_DISARM_CODE] = (user_input.get(CONF_DISARM_CODE) or "").strip()
+            return self._save(user_input)
 
         o = self.config_entry.options
         fields: dict[Any, Any] = {
@@ -232,7 +261,7 @@ class DahuaVtoOptionsFlow(OptionsFlowWithReload):
                 )
             )
         }
-        if self.config_entry.data.get(CONF_DEVICE_KIND, KIND_VTO) == KIND_VTO:
+        if self._is_vto:
             fields.update(
                 {
                     vol.Required(
@@ -275,4 +304,56 @@ class DahuaVtoOptionsFlow(OptionsFlowWithReload):
                     ),
                 }
             )
-        return self.async_show_form(step_id="init", data_schema=vol.Schema(fields))
+        else:
+            # Optional + suggested value so the PIN can be cleared (SPEC §12.1).
+            fields[
+                vol.Optional(
+                    CONF_DISARM_CODE,
+                    description={"suggested_value": o.get(CONF_DISARM_CODE, "")},
+                )
+            ] = _PASSWORD
+        return self.async_show_form(step_id="settings", data_schema=vol.Schema(fields))
+
+    async def async_step_fingerprints(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Map one fingerprint ID to a person; empty person removes it (SPEC §12.3)."""
+        persons: dict[str, str] = dict(
+            self.config_entry.options.get(CONF_FINGERPRINT_PERSONS) or {}
+        )
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            fp = str(user_input.get(CONF_FINGERPRINT_ID, "")).strip()
+            if not fp.isdigit():
+                errors[CONF_FINGERPRINT_ID] = "invalid_fingerprint"
+            else:
+                fp = str(int(fp))
+                if person := user_input.get(CONF_PERSON):
+                    persons[fp] = person
+                else:
+                    persons.pop(fp, None)
+                return self._save({CONF_FINGERPRINT_PERSONS: persons})
+
+        # IDs seen in the events plus those already mapped (VTO cannot list them).
+        device = getattr(self.config_entry, "runtime_data", None)
+        seen = set(device.history.seen_fingerprints) if device else set()
+        ids = sorted(seen | {int(k) for k in persons})
+        current = "\n".join(f"- {k} → {v}" for k, v in sorted(persons.items())) or "-"
+        schema = vol.Schema(
+            {
+                vol.Required(CONF_FINGERPRINT_ID): SelectSelector(
+                    SelectSelectorConfig(
+                        options=[str(i) for i in ids],
+                        custom_value=True,
+                        mode=SelectSelectorMode.DROPDOWN,
+                    )
+                ),
+                vol.Optional(CONF_PERSON): EntitySelector(EntitySelectorConfig(domain="person")),
+            }
+        )
+        return self.async_show_form(
+            step_id="fingerprints",
+            data_schema=schema,
+            errors=errors,
+            description_placeholders={"mappings": current},
+        )

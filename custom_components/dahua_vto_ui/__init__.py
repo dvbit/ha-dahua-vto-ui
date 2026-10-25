@@ -16,6 +16,7 @@ from homeassistant.helpers.typing import ConfigType
 
 from .const import CONF_DEVICE_KIND, DOMAIN, KIND_VTH
 from .device import DahuaVtoDevice
+from .history import AccessHistory
 from .rpc import DahuaAuthError, DahuaError
 from .services import async_setup_services
 
@@ -80,6 +81,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: DahuaConfigEntry) -> boo
         sw_version=info.get("software_version"),
     )
     device.device_id = dev.id
+    await device.history.async_load()  # SPEC §12.4
     entry.runtime_data = device
 
     await hass.config_entries.async_forward_entry_setups(entry, _platforms(entry))
@@ -95,3 +97,8 @@ async def async_unload_entry(hass: HomeAssistant, entry: DahuaConfigEntry) -> bo
         await entry.runtime_data.async_stop()
         _LOGGER.info("%s unloaded", entry.title)
     return unloaded
+
+
+async def async_remove_entry(hass: HomeAssistant, entry: DahuaConfigEntry) -> None:
+    """Delete the stored access history (SPEC §12.4)."""
+    await AccessHistory(hass, entry.entry_id).async_remove()

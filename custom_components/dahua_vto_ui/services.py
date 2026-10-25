@@ -25,6 +25,7 @@ from .const import (
     ATTR_DEVICE_ID,
     ATTR_EVENT,
     ATTR_INSTANCE_PARAMS,
+    ATTR_LIMIT,
     ATTR_METHOD,
     ATTR_PARAMS,
     ATTR_TAG,
@@ -32,13 +33,15 @@ from .const import (
     CONF_SHORT_NUMBER,
     DEFAULT_SHORT_NUMBER,
     DOMAIN,
+    HISTORY_SIZE,
     MAX_LOCK_CHANNELS,
     SERVICE_DEFAULT_TIMEOUT,
+    SERVICE_GET_ACCESS_LOG,
     SERVICE_OPEN_DOOR,
     SERVICE_SEND_COMMAND,
     SERVICE_SEND_INSTANCE_COMMAND,
 )
-from .rpc import DahuaError
+from .rpc import DahuaError, error_text
 
 if TYPE_CHECKING:
     from .device import DahuaVtoDevice
@@ -79,13 +82,25 @@ SCHEMA_SEND_INSTANCE_COMMAND = vol.Schema(
 )
 
 
-def _get_device(hass: HomeAssistant, device_id: str) -> DahuaVtoDevice:
+SCHEMA_GET_ACCESS_LOG = vol.Schema(
+    {
+        vol.Required(ATTR_DEVICE_ID): cv.string,
+        vol.Optional(ATTR_LIMIT, default=HISTORY_SIZE): vol.All(
+            vol.Coerce(int), vol.Range(min=1, max=HISTORY_SIZE)
+        ),
+    }
+)
+
+
+def _get_device(
+    hass: HomeAssistant, device_id: str, require_connected: bool = True
+) -> DahuaVtoDevice:
     """Resolve a device_id to our runtime device (SPEC §5.1, §5.2)."""
     dev = dr.async_get(hass).async_get(device_id)
     entry = hass.config_entries.async_get_entry(dev.config_entry_id) if dev else None
     if entry is not None and entry.domain == DOMAIN and entry.state is ConfigEntryState.LOADED:
         device: DahuaVtoDevice = entry.runtime_data
-        if not device.connected:
+        if require_connected and not device.connected:
             raise HomeAssistantError(
                 translation_domain=DOMAIN,
                 translation_key="not_connected",
@@ -111,7 +126,7 @@ def _command_error(err: Exception) -> HomeAssistantError:
 
 
 def async_setup_services(hass: HomeAssistant) -> None:
-    """Register ``open_door``, ``send_command``, ``send_instance_command``."""
+    """Register the services of SPEC §5 and ``get_access_log`` (SPEC §12.4)."""
 
     async def open_door(call: ServiceCall) -> None:
         device = _get_device(hass, call.data[ATTR_DEVICE_ID])
@@ -121,7 +136,7 @@ def async_setup_services(hass: HomeAssistant) -> None:
         try:
             await device.async_open_door(call.data[ATTR_CHANNEL], short_number)
         except (DahuaError, TimeoutError) as err:
-            _LOGGER.error("%s: open_door failed: %s", device.name, err)
+            _LOGGER.error("%s: open_door failed: %s", device.name, error_text(err))
             raise _command_error(err) from err
 
     async def send_command(call: ServiceCall) -> ServiceResponse:
@@ -132,7 +147,7 @@ def async_setup_services(hass: HomeAssistant) -> None:
                 method, call.data.get(ATTR_PARAMS), call.data[ATTR_TIMEOUT]
             )
         except (DahuaError, TimeoutError) as err:
-            _LOGGER.error("%s: send_command %s failed: %s", device.name, method, err)
+            _LOGGER.error("%s: send_command %s failed: %s", device.name, method, error_text(err))
             raise _command_error(err) from err
         _LOGGER.info("%s: command %s sent", device.name, method)
         return _finish(device, method, response, call.data)
@@ -148,12 +163,28 @@ def async_setup_services(hass: HomeAssistant) -> None:
                 call.data[ATTR_TIMEOUT],
             )
         except (DahuaError, TimeoutError) as err:
-            _LOGGER.error("%s: send_instance_command %s failed: %s", device.name, method, err)
+            _LOGGER.error(
+                "%s: send_instance_command %s failed: %s", device.name, method, error_text(err)
+            )
             raise _command_error(err) from err
         _LOGGER.info("%s: instance command %s sent", device.name, method)
         return _finish(device, method, response, call.data)
 
+    async def get_access_log(call: ServiceCall) -> ServiceResponse:
+        """Return the stored history, newest first (SPEC §12.4)."""
+        device = _get_device(hass, call.data[ATTR_DEVICE_ID], require_connected=False)
+        entries = device.history.newest_first(call.data[ATTR_LIMIT])
+        _LOGGER.debug("%s: access log requested, %d entries", device.name, len(entries))
+        return {"entries": entries}
+
     hass.services.async_register(DOMAIN, SERVICE_OPEN_DOOR, open_door, SCHEMA_OPEN_DOOR)
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_GET_ACCESS_LOG,
+        get_access_log,
+        SCHEMA_GET_ACCESS_LOG,
+        supports_response=SupportsResponse.ONLY,
+    )
     hass.services.async_register(
         DOMAIN,
         SERVICE_SEND_COMMAND,

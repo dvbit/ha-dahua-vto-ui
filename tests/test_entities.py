@@ -238,3 +238,87 @@ async def test_camera_and_diagnostics(hass: HomeAssistant, fake_vto: FakeDahua) 
     assert diag["entry"]["data"]["password"] == "**REDACTED**"
     assert diag["system_info"]["serial_number"] == "**REDACTED**"
     assert diag["recent_events"][-1]["Code"] == "BackKeyLight"
+
+
+async def test_fingerprint_person_and_history(
+    hass: HomeAssistant, fake_vto: FakeDahua, hass_storage
+) -> None:
+    """FingerPrintCheck → fingerprint_id + person; history persisted and served (§12.2-12.4)."""
+    entry = make_entry(fake_vto, "vto", {"fingerprint_persons": {"1": "person.nicola"}})
+    await setup_entry(hass, entry)
+    fake_vto.push_event("BackKeyLight", {"State": 1})
+    fake_vto.push_event("BackKeyLight", {"State": 2})
+    fake_vto.push_event("CallSnap", {"RemoteID": "9901"})
+    fake_vto.push_event("FingerPrintCheck", {"FingerPrintID": 1})
+    fake_vto.push_event("AccessControl", {"Status": 1, "Method": 6, "UserID": "9901"})
+    fake_vto.push_event("AccessControl", {"Status": 1, "Method": 4, "UserID": "HA"})
+    await _flush(hass)
+
+    access = hass.states.get("event.citofono_access")
+    assert access.attributes["fingerprint_id"] is None  # last one was remote
+    log = hass.states.get("sensor.citofono_access_log")
+    history = log.attributes["history"]
+    assert [h["type"] for h in history] == ["access", "access", "call"]
+    assert history[1]["fingerprint_id"] == 1
+    assert history[1]["person"] == "person.nicola"
+    assert history[1]["method_name"] == "fingerprint"
+    assert history[2]["event"] == "ring"
+    assert history[2]["number"] == "9901"
+
+    response = await hass.services.async_call(
+        DOMAIN,
+        "get_access_log",
+        {"device_id": _device_id(entry), "limit": 1},
+        blocking=True,
+        return_response=True,
+    )
+    assert response["entries"][0]["method_name"] == "remote"
+
+    # Persisted: unload flushes the store, reload restores it.
+    assert await hass.config_entries.async_unload(entry.entry_id)
+    stored = hass_storage[f"{DOMAIN}.history.{entry.entry_id}"]["data"]
+    assert len(stored["entries"]) == 3
+    assert stored["seen_fingerprints"] == [1]
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    assert len(entry.runtime_data.history.entries) == 3
+
+
+async def test_fingerprint_too_old_ignored(hass: HomeAssistant, fake_vto: FakeDahua) -> None:
+    """A FingerPrintCheck older than 10 s is not paired (§12.2)."""
+    entry = make_entry(fake_vto, "vto")
+    await setup_entry(hass, entry)
+    fake_vto.push_event("FingerPrintCheck", {"FingerPrintID": 2})
+    await _flush(hass)
+    with patch("custom_components.dahua_vto_ui.history.monotonic", return_value=1e12):
+        fake_vto.push_event("AccessControl", {"Status": 1, "Method": 6, "UserID": "9901"})
+        await _flush(hass)
+    assert hass.states.get("event.citofono_access").attributes["fingerprint_id"] is None
+
+
+async def test_vth_disarm_pin(hass: HomeAssistant, fake_vth: FakeDahua) -> None:
+    """PIN only for disarm; wrong PIN refused without commands (§12.1)."""
+    fake_vth.comm_global["AlarmEnable"] = True
+    entry = make_entry(fake_vth, "vth", {"disarm_code": "1234"})
+    await setup_entry(hass, entry)
+    alarm = "alarm_control_panel.monitor_alarm"
+    state = hass.states.get(alarm)
+    assert state.attributes["code_format"] == "number"
+    assert state.attributes["code_arm_required"] is False
+    calls = len(fake_vth.calls)
+    with pytest.raises(ServiceValidationError):
+        await hass.services.async_call(
+            "alarm_control_panel",
+            "alarm_disarm",
+            {"entity_id": alarm, "code": "0000"},
+            blocking=True,
+        )
+    assert len(fake_vth.calls) == calls
+    await hass.services.async_call(
+        "alarm_control_panel", "alarm_disarm", {"entity_id": alarm, "code": "1234"}, blocking=True
+    )
+    assert fake_vth.comm_global["AlarmEnable"] is False
+    await hass.services.async_call(
+        "alarm_control_panel", "alarm_arm_home", {"entity_id": alarm}, blocking=True
+    )
+    assert fake_vth.comm_global["AlarmEnable"] is True

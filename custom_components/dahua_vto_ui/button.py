@@ -15,7 +15,7 @@ from . import DahuaConfigEntry
 from .const import DOMAIN, KIND_VTO
 from .device import DahuaVtoDevice
 from .entity import DahuaVtoEntity
-from .rpc import DahuaError
+from .rpc import DahuaError, error_text
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -59,7 +59,9 @@ class DahuaButton(DahuaVtoEntity, ButtonEntity):
         try:
             await self._action()
         except (DahuaError, TimeoutError) as err:
-            _LOGGER.error("%s: %s failed: %s", self.device.name, self._attr_translation_key, err)
+            _LOGGER.error(
+                "%s: %s failed: %s", self.device.name, self._attr_translation_key, error_text(err)
+            )
             raise HomeAssistantError(
                 translation_domain=DOMAIN,
                 translation_key="command_failed",

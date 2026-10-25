@@ -9,6 +9,9 @@
       },
       "last_call": {
         "default": "mdi:phone-log"
+      },
+      "access_log": {
+        "default": "mdi:account-clock"
       }
     },
     "event": {
@@ -44,6 +47,9 @@
     },
     "send_instance_command": {
       "service": "mdi:console-line"
+    },
+    "get_access_log": {
+      "service": "mdi:history"
     }
   }
 }

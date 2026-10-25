@@ -6,6 +6,7 @@ original README. Profiles follow Antori91/Home_Automation Dahua-VTH-SecPanel.
 
 from __future__ import annotations
 
+import hmac
 import logging
 from typing import Any
 
@@ -13,13 +14,15 @@ from homeassistant.components.alarm_control_panel import (
     AlarmControlPanelEntity,
     AlarmControlPanelEntityFeature,
     AlarmControlPanelState,
+    CodeFormat,
 )
 from homeassistant.core import HomeAssistant, callback
-from homeassistant.exceptions import HomeAssistantError
+from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from . import DahuaConfigEntry
 from .const import (
+    CONF_DISARM_CODE,
     DOMAIN,
     PROFILE_AT_HOME,
     PROFILE_CUSTOM,
@@ -28,7 +31,7 @@ from .const import (
 )
 from .device import DahuaVtoDevice
 from .entity import DahuaVtoEntity
-from .rpc import DahuaError
+from .rpc import DahuaError, error_text
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -86,7 +89,7 @@ class DahuaVthAlarm(DahuaVtoEntity, AlarmControlPanelEntity):
         try:
             self._table = await self.device.async_get_comm_global()
         except (DahuaError, TimeoutError) as err:
-            _LOGGER.warning("%s: alarm state not readable: %s", self.device.name, err)
+            _LOGGER.warning("%s: alarm state not readable: %s", self.device.name, error_text(err))
             return
         self.async_write_ha_state()
 
@@ -110,6 +113,18 @@ class DahuaVthAlarm(DahuaVtoEntity, AlarmControlPanelEntity):
         return PROFILE_TO_STATE.get(self._table.get("CurrentProfile", ""))
 
     @property
+    def _disarm_code(self) -> str:
+        """PIN required to disarm, empty = none (SPEC §12.1)."""
+        return str(self.device.entry.options.get(CONF_DISARM_CODE) or "")
+
+    @property
+    def code_format(self) -> CodeFormat | None:
+        """Keypad shown only when a PIN is set (SPEC §12.1)."""
+        if not (code := self._disarm_code):
+            return None
+        return CodeFormat.NUMBER if code.isdigit() else CodeFormat.TEXT
+
+    @property
     def extra_state_attributes(self) -> dict[str, Any]:
         """Raw VTH profile."""
         return {"profile": self._table.get("CurrentProfile")}
@@ -124,7 +139,7 @@ class DahuaVthAlarm(DahuaVtoEntity, AlarmControlPanelEntity):
                 table["ProfileEnable"] = True
             await self.device.async_set_comm_global(table)
         except (DahuaError, TimeoutError) as err:
-            _LOGGER.error("%s: alarm command failed: %s", self.device.name, err)
+            _LOGGER.error("%s: alarm command failed: %s", self.device.name, error_text(err))
             raise HomeAssistantError(
                 translation_domain=DOMAIN,
                 translation_key="command_failed",
@@ -135,7 +150,11 @@ class DahuaVthAlarm(DahuaVtoEntity, AlarmControlPanelEntity):
         self.async_write_ha_state()
 
     async def async_alarm_disarm(self, code: str | None = None) -> None:
-        """Disarm (keep the current profile)."""
+        """Disarm (keep the current profile); check the PIN if set (SPEC §12.1)."""
+        expected = self._disarm_code
+        if expected and not hmac.compare_digest(str(code or ""), expected):
+            _LOGGER.warning("%s: disarm refused, wrong or missing PIN", self.device.name)
+            raise ServiceValidationError(translation_domain=DOMAIN, translation_key="invalid_code")
         await self._async_apply(False, None)
 
     async def async_alarm_arm_home(self, code: str | None = None) -> None:

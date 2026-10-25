@@ -66,6 +66,13 @@ class DahuaCommandError(DahuaError):
         self.response = response
 
 
+def error_text(err: BaseException) -> str:
+    """Readable error for logs: timeouts have an empty str() (SPEC §12.5)."""
+    if isinstance(err, TimeoutError):
+        return "timeout"
+    return str(err) or type(err).__name__
+
+
 def hash_password(username: str, password: str, random: str, realm: str) -> str:
     """Return the Dahua login digest: MD5(user:random:MD5(user:realm:pass))."""
     inner = (

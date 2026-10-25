@@ -84,3 +84,18 @@ send_instance_command:
           max: 60
           unit_of_measurement: s
           mode: box
+
+get_access_log:
+  fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          integration: dahua_vto_ui
+    limit:
+      default: 60
+      selector:
+        number:
+          min: 1
+          max: 60
+          mode: box
