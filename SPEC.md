@@ -179,3 +179,14 @@ en / it / fr / es / de: form, opzioni, errori, entità, stati, tipi di evento, s
   rifiutato senza comandi, `fingerprint_id` e persona, impronta scaduta ignorata, storico con
   numero chiamato, persistenza Store dopo unload/setup, servizio `get_access_log`).
 - hassfest (core 2026.10.2), ruff e ruff format: puliti; nessun avviso di deprecazione.
+
+## 14. Requisiti pianificati (v2.2.0, non ancora sviluppati)
+
+### 14.1 Squillo da più eventi
+- Lo squillo (`ring` del campanello e voce `call` nello storico) viene riconosciuto da:
+  `BackKeyLight` stato 1/2, `CallNoAnswered` con `Action: Start`, `Invite` con `Action: Start`.
+- Deduplica per chiamata: con `CallID` (o `CallId`) già visto non si genera un secondo `ring`;
+  senza `CallID`, un nuovo `ring` è ignorato se ne è stato generato uno negli ultimi 10 s e
+  `BackKeyLight` non è tornato a 0.
+- Motivazione (collaudo VTO2000A 25/10/2026): `CallNoAnswered` Start ricevuto senza il
+  `BackKeyLight` stato 1 corrispondente → squillo perso.
