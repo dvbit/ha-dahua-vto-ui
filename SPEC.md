@@ -132,3 +132,40 @@ en / it / fr / es / de: form, opzioni, errori, entità, stati, tipi di evento, s
 - PIN errato o mancante → `ServiceValidationError` tradotto, WARNING nel log, nessun comando al VTH.
 - Il PIN è oscurato nella diagnostica.
 - Il PIN del monitor VTH (impostato sul dispositivo) non viene letto né modificato.
+
+### 12.2 Numero impronta negli eventi di accesso
+- `event.<nome>_access` aggiunge l'attributo `fingerprint_id` quando l'apertura è con
+  impronta (`Method` 6).
+- Il valore viene dall'evento `FingerPrintCheck` (`Data.FingerPrintID`) ricevuto entro
+  10 s prima dell'`AccessControl` corrispondente (verificato su VTO2000A: `FingerPrintCheck`
+  arriva ~5 s prima di `AccessControl` con `Method` 6 e `UserID` = numero stanza).
+
+### 12.3 Impronta → persona
+- Nelle opzioni del VTO: elenco di associazioni `ID impronta → persona` (selettore entità
+  `person`), opzionale.
+- Lettura dell'elenco impronte dal VTO: **non disponibile**. Verifica su VTO2000A:
+  nessun servizio o tabella di configurazione per le impronte (`FingerprintManager` assente,
+  `RecordFinder` `AccessControlCard` e `RoomNumber` vuoti o rifiutati).
+  Ripiego: gli ID impronta già visti negli eventi vengono proposti nel form;
+  si possono anche inserire a mano.
+- Effetto: attributo `person` (entity_id) negli eventi di accesso e nello storico (§12.4).
+
+### 12.4 Storico accessi e chiamate
+- Fonte: eventi raccolti da HA (`AccessControl`, `FingerPrintCheck`, `BackKeyLight`,
+  `CallSnap`, `VideoTalkLog`), salvati con `Store` di HA: persistono ai riavvii.
+  Scelta motivata: il registro interno del VTO è leggibile (`RecordFinder`
+  `AccessControlCardRec`, verificato) ma solo per le aperture e senza documentazione
+  ufficiale; gli eventi coprono aperture e chiamate.
+- Voci: aperture (metodo, esito, utente/stanza, impronta, persona) e chiamate
+  (squillo, risposta, persa, messaggio vocale, numero chiamato).
+- Ultime **60** voci, dalla più recente.
+- Consultazione:
+  - `sensor.<nome>_access_log`: stato = ora dell'ultima voce, attributo `history`
+    (lista), escluso dal recorder (limite 16 KB);
+  - servizio `get_access_log` (target `device_id`, campo `limit` 1–60), con risposta.
+- Eventi persi mentre HA è spento o disconnesso: non recuperati (limite noto).
+
+### 12.5 Correzioni emerse dal collaudo
+- Il VTO2000A chiude la sessione su `system.listService` (nessuna risposta, disconnessione
+  dopo ~5 s): documentarlo nel README; la riconnessione automatica funziona.
+- Messaggio di errore vuoto nel log per i timeout dei servizi: scrivere "timeout".
