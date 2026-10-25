@@ -31,9 +31,11 @@ from .const import (
     BKL_KNOWN,
     CODE_ACCESS_CONTROL,
     CODE_BACK_KEY_LIGHT,
+    CODE_CALL_NO_ANSWERED,
     CODE_CALL_SNAP,
     CODE_CONFIG_CHANGE,
     CODE_FINGERPRINT_CHECK,
+    CODE_INVITE,
     CODE_VIDEO_TALK_LOG,
     CONF_DEVICE_KIND,
     CONF_FINGERPRINT_PERSONS,
@@ -274,13 +276,11 @@ class DahuaVtoDevice:
                 _LOGGER.warning("%s: unknown BackKeyLight state %s", self.name, state)
             if (event_type := history.handle_back_key_light(data)) is None:
                 return
-            _LOGGER.debug("%s doorbell %s", self.name, event_type)
-            async_dispatcher_send(
-                self.hass,
-                self.signal_doorbell,
-                event_type,
-                {"state": state, "utc": data.get("UTC")},
-            )
+            self._doorbell(event_type, {"state": state, "utc": data.get("UTC")})
+        elif code in (CODE_CALL_NO_ANSWERED, CODE_INVITE):
+            if (event_type := history.handle_call_start(code, event)) is None:
+                return
+            self._doorbell(event_type, {"source": code, "utc": data.get("UTC")})
         elif code == CODE_CALL_SNAP:
             history.handle_call_snap(data)
         elif code == CODE_VIDEO_TALK_LOG:
@@ -304,6 +304,12 @@ class DahuaVtoDevice:
         payload["Code"] = CODE_CONFIG_CHANGE
         self.hass.bus.async_fire(EVENT_BUS, self._bus_payload(payload))
         async_dispatcher_send(self.hass, self.signal_config, table)
+
+    @callback
+    def _doorbell(self, event_type: str, attrs: dict[str, Any]) -> None:
+        """Send an interpreted doorbell event (SPEC §4.2, §14.1)."""
+        _LOGGER.debug("%s doorbell %s %s", self.name, event_type, attrs)
+        async_dispatcher_send(self.hass, self.signal_doorbell, event_type, attrs)
 
     # ------------------------------------------------------------- commands
     def _require_client(self) -> DahuaRpcClient:

@@ -3,7 +3,7 @@
 # Dahua VTO UI
 
 [![HACS Custom](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://hacs.xyz/)
-![Version](https://img.shields.io/badge/version-2.1.0-blue)
+![Version](https://img.shields.io/badge/version-2.2.0-blue)
 ![HA](https://img.shields.io/badge/Home%20Assistant-2026.9%2B-41BDF5)
 
 🇮🇹 [Leggi in italiano](README.it.md)
@@ -33,6 +33,11 @@ direct response) and the `dahua_vto_ui` event with the same payloads as the orig
 
 Tested with VTO2000A and VTH5221DW; the models listed by the original integration
 should work as well.
+
+## New in 2.2.0
+
+- **More reliable ring**: also detected from `CallNoAnswered` / `Invite` (start), once per
+  call (CallID and 10 s de-duplication).
 
 ## New in 2.1.0
 

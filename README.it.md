@@ -3,7 +3,7 @@
 # Dahua VTO UI
 
 [![HACS Custom](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://hacs.xyz/)
-![Versione](https://img.shields.io/badge/versione-2.1.0-blue)
+![Versione](https://img.shields.io/badge/versione-2.2.0-blue)
 ![HA](https://img.shields.io/badge/Home%20Assistant-2026.9%2B-41BDF5)
 
 🇬🇧 [Read in English](README.md)
@@ -33,6 +33,11 @@ risposta diretta) e l'evento `dahua_vto_ui` con gli stessi dati dell'originale.
 
 Provata con VTO2000A e VTH5221DW; dovrebbero funzionare anche i modelli elencati
 dall'integrazione originale.
+
+## Novità della 2.2.0
+
+- **Squillo più affidabile**: riconosciuto anche da `CallNoAnswered` / `Invite` (inizio), una
+  sola volta per chiamata (deduplica per CallID e finestra di 10 s).
 
 ## Novità della 2.1.0
 

@@ -322,3 +322,31 @@ async def test_vth_disarm_pin(hass: HomeAssistant, fake_vth: FakeDahua) -> None:
         "alarm_control_panel", "alarm_arm_home", {"entity_id": alarm}, blocking=True
     )
     assert fake_vth.comm_global["AlarmEnable"] is True
+
+
+async def test_ring_from_call_events(hass: HomeAssistant, fake_vto: FakeDahua) -> None:
+    """CallNoAnswered/Invite Start ring; one ring per call across sources (§14.1)."""
+    await setup_entry(hass, make_entry(fake_vto, "vto"))
+    seen = []
+
+    def _track(event):
+        new = event.data["new_state"]
+        if event.data["entity_id"] == "event.citofono_doorbell" and new.attributes.get(
+            "event_type"
+        ):
+            seen.append(new.attributes.get("source") or "BackKeyLight")
+
+    hass.bus.async_listen("state_changed", _track)
+    # Call 4: CallNoAnswered without BackKeyLight, then Invite with same id.
+    fake_vto.push_event("CallNoAnswered", {"CallID": "4"}, action="Start")
+    fake_vto.push_event("Invite", {"CallID": "4"}, action="Start")
+    fake_vto.push_event("CallNoAnswered", {"CallID": "4"}, action="Stop")
+    fake_vto.push_event("BackKeyLight", {"State": 0})
+    await _flush(hass)
+    # Call 5: BackKeyLight first, then CallNoAnswered with a new id = same call.
+    fake_vto.push_event("BackKeyLight", {"State": 1})
+    fake_vto.push_event("CallNoAnswered", {"CallID": "5"}, action="Start")
+    await _flush(hass)
+    assert seen == ["CallNoAnswered", "BackKeyLight"]
+    log = hass.states.get("sensor.citofono_access_log").attributes["history"]
+    assert [e["event"] for e in log] == ["ring", "ring"]

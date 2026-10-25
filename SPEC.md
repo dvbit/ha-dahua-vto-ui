@@ -1,4 +1,4 @@
-# Dahua VTO UI — specifica consolidata v2.1.0
+# Dahua VTO UI — specifica consolidata v2.2.0
 
 Fork di [myhomeiot/DahuaVTO](https://github.com/myhomeiot/DahuaVTO) (GPL-3.0)
 reso configurabile interamente da interfaccia, con le configurazioni suggerite
@@ -180,13 +180,22 @@ en / it / fr / es / de: form, opzioni, errori, entità, stati, tipi di evento, s
   numero chiamato, persistenza Store dopo unload/setup, servizio `get_access_log`).
 - hassfest (core 2026.10.2), ruff e ruff format: puliti; nessun avviso di deprecazione.
 
-## 14. Requisiti pianificati (v2.2.0, non ancora sviluppati)
+## 14. Requisiti v2.2.0
 
 ### 14.1 Squillo da più eventi
 - Lo squillo (`ring` del campanello e voce `call` nello storico) viene riconosciuto da:
   `BackKeyLight` stato 1/2, `CallNoAnswered` con `Action: Start`, `Invite` con `Action: Start`.
 - Deduplica per chiamata: con `CallID` (o `CallId`) già visto non si genera un secondo `ring`;
-  senza `CallID`, un nuovo `ring` è ignorato se ne è stato generato uno negli ultimi 10 s e
-  `BackKeyLight` non è tornato a 0.
+  inoltre qualsiasi nuovo `ring` (con o senza `CallID`) è ignorato se ne è stato generato uno
+  negli ultimi 10 s e `BackKeyLight` non è tornato a 0 (copre `BackKeyLight` seguito da
+  `CallNoAnswered` con un `CallID` nuovo). Ultimi 20 `CallID` memorizzati.
+- L'evento campanello generato da `CallNoAnswered`/`Invite` ha l'attributo `source`.
 - Motivazione (collaudo VTO2000A 25/10/2026): `CallNoAnswered` Start ricevuto senza il
   `BackKeyLight` stato 1 corrispondente → squillo perso.
+
+## 15. Verifiche eseguite (v2.2.0)
+
+- 27 test pytest su HA reale **2026.10.2** e **2026.9.0**: passati (nuovo: squillo da
+  `CallNoAnswered` senza `BackKeyLight`, deduplica con `Invite` stesso `CallID`, deduplica
+  `BackKeyLight` + `CallNoAnswered` con `CallID` nuovo, voci nello storico).
+- hassfest (core 2026.10.2), ruff e ruff format: puliti.

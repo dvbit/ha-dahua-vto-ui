@@ -49,6 +49,10 @@ SAVE_DELAY = 5  # seconds, batches bursts of events into one write
 
 # Max age of a FingerPrintCheck to be paired with AccessControl (§12.2).
 FINGERPRINT_WINDOW = 10.0
+# A second ring within this window, while still ringing, is the same call (§14.1).
+RING_DEDUP_WINDOW = 10.0
+# Call IDs remembered for de-duplication (§14.1).
+RING_IDS_KEPT = 20
 # Max age of the latest call entry to receive CallSnap / VideoTalkLog details.
 CALL_MERGE_WINDOW = 120.0
 
@@ -84,6 +88,10 @@ class AccessHistory:
         self._last_bkl: int | None = None
         self._last_fp: tuple[int, float] | None = None
         self._last_call_at: float = 0.0
+        # Ring de-duplication across BackKeyLight / CallNoAnswered / Invite (§14.1).
+        self._ringing = False
+        self._last_ring_at: float = 0.0
+        self._ring_ids: deque[str] = deque(maxlen=RING_IDS_KEPT)
 
     # ------------------------------------------------------------- storage
     async def async_load(self) -> None:
@@ -126,11 +134,40 @@ class AccessHistory:
         self._schedule_save()
         return entry
 
+    def _ring(self, call_id: str | None, source: str) -> str | None:
+        """Register a ring unless it belongs to a call already rung (§14.1).
+
+        Duplicates: a CallID already seen, or any ring while the previous one
+        is still in progress (BackKeyLight not back to 0) and less than
+        ``RING_DEDUP_WINDOW`` seconds old.
+        """
+        now = monotonic()
+        if call_id and call_id in self._ring_ids:
+            _LOGGER.debug("Ring from %s ignored: call %s already rung", source, call_id)
+            return None
+        if self._ringing and now - self._last_ring_at <= RING_DEDUP_WINDOW:
+            _LOGGER.debug("Ring from %s ignored: same call still ringing", source)
+            if call_id:
+                self._ring_ids.append(call_id)
+            return None
+        if call_id:
+            self._ring_ids.append(call_id)
+        self._ringing = True
+        self._last_ring_at = now
+        _LOGGER.debug("Ring detected from %s (call %s)", source, call_id or "-")
+        return self._call(DOORBELL_RING)
+
+    def _call(self, event_type: str) -> str:
+        """Add a call entry to the history and return its type."""
+        self._add({"type": "call", "event": event_type, "number": None})
+        self._last_call_at = monotonic()
+        return event_type
+
     def handle_back_key_light(self, data: dict[str, Any]) -> str | None:
         """Return the doorbell event type for a BackKeyLight state, if any.
 
         ``ring`` is returned once per call even if states 1 and 2 follow
-        each other (SPEC §4.2). A call entry is added to the history.
+        each other or another event already reported it (SPEC §4.2, §14.1).
         """
         state = _int(data.get("State"))
         if state is None:
@@ -139,12 +176,20 @@ class AccessHistory:
         if state in BKL_RING:
             if previous in BKL_RING:
                 return None
-            event_type = DOORBELL_RING
-        elif (event_type := BKL_CALL_EVENTS.get(state)) is None:
+            return self._ring(None, "BackKeyLight")
+        if state == 0:
+            self._ringing = False  # call over: the next ring is a new call
+        if (event_type := BKL_CALL_EVENTS.get(state)) is None:
             return None
-        self._add({"type": "call", "event": event_type, "number": None})
-        self._last_call_at = monotonic()
-        return event_type
+        return self._call(event_type)
+
+    def handle_call_start(self, code: str, event: dict[str, Any]) -> str | None:
+        """Ring from ``CallNoAnswered`` / ``Invite`` with ``Action: Start`` (§14.1)."""
+        if event.get("Action") != "Start":
+            return None
+        data = event.get("Data") or {}
+        call_id = data.get("CallID") or data.get("CallId")
+        return self._ring(str(call_id) if call_id not in (None, "") else None, code)
 
     def _latest_call(self) -> dict[str, Any] | None:
         if monotonic() - self._last_call_at > CALL_MERGE_WINDOW:

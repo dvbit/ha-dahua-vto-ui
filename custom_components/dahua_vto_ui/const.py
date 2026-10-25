@@ -68,6 +68,8 @@ CODE_VIDEO_TALK_LOG: Final = "VideoTalkLog"
 CODE_CONFIG_CHANGE: Final = "client.notifyConfigChange"
 CODE_FINGERPRINT_CHECK: Final = "FingerPrintCheck"
 CODE_CALL_SNAP: Final = "CallSnap"
+CODE_CALL_NO_ANSWERED: Final = "CallNoAnswered"  # §14.1
+CODE_INVITE: Final = "Invite"  # §14.1
 
 # BackKeyLight states (README table, SPEC §4.2).
 BKL_IDLE: Final = 0
